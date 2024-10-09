@@ -14,3 +14,4 @@ Makefile
 # editor and system files
 *.swp
 .DS_Store
+.vscode/
