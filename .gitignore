@@ -1,0 +1,16 @@
+# build directory
+/build/
+
+# ignore cmake generated files
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# compiled executables
+*.out
+*.exe
+
+# editor and system files
+*.swp
+.DS_Store
