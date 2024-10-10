@@ -99,11 +99,8 @@ std::vector<double> * generate_solution(std::mt19937 & generator, const double m
     return solution;
 }
 
-
-int main() {
-
+void test_generated_solutions() {
     Config config = parse_config("../config.ini");
-    print_config(config);
 
     std::random_device random_device;
     std::mt19937 generator(random_device());
@@ -121,6 +118,13 @@ int main() {
         std::cout << a << ' ';
     }
     std::cout << '\n';
+}
+
+
+int main() {
+
+    Config config = parse_config("../config.ini");
+    print_config(config);
 
     return 0;
 
