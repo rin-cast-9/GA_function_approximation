@@ -2,6 +2,7 @@
 #include <string>
 #include <map>
 #include <cmath>
+#include <random>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/ini_parser.hpp>
 
@@ -12,7 +13,7 @@ double square(const double x) {
 
 using Func = double (*)(double);
 
-std::map <std::string, Func> StringToFunctionMap = {
+std::map <std::string, Func> string_to_function_map = {
     {"sin", std::sin},
     {"cos", std::cos},
     {"square", square},
@@ -29,10 +30,10 @@ struct Config {
     int argument_multiplier;
 };
 
-Config parseConfig(const std::string & filePath) {
+Config parse_config(const std::string & file_path) {
     Config config;
     boost::property_tree::ptree ptree;
-    boost::property_tree::ini_parser::read_ini(filePath, ptree);
+    boost::property_tree::ini_parser::read_ini(file_path, ptree);
 
     config.step = ptree.get <double> ("step");
     config.population_size = ptree.get <int> ("population_size");
@@ -44,7 +45,7 @@ Config parseConfig(const std::string & filePath) {
     return config;
 }
 
-void printConfig(const Config & config) {
+void print_config(const Config & config) {
     std::cout << "step: " << config.step << '\n';
     std::cout << "population size: " << config.population_size << '\n';
     std::cout << "mutation rate: " << config.mutation_rate << '\n';
@@ -69,12 +70,50 @@ void printConfig(const Config & config) {
 }
 
 
+std::vector<double> * generate_solution(const Func & function, const int multiplier, const int constant) {
+    auto * solution = new std::vector <double> ();
+
+    if (function == square) {
+        for (double x = 0; x <= 10.0; x += 0.1) {
+            solution->push_back(static_cast <double> (constant) + function(x) * static_cast <double> (multiplier));
+        }
+
+        return solution;
+    }
+
+    for (double x = 0; x <= 10.0; x += 0.1) {
+        solution->push_back(static_cast <double> (constant) + function(x * static_cast <double> (multiplier)));
+    }
+
+    return solution;
+}
+
+std::vector<double> * generate_solution(std::mt19937 & generator, const double min_value, const double max_value) {
+    std::uniform_real_distribution <> distribution(min_value, max_value);
+
+    auto * solution = new std::vector <double> (101);
+    for (auto & element : * solution) {
+        element = distribution(generator);
+    }
+
+    return solution;
+}
+
+
 int main() {
 
-    std::cout << "hello, ga program kokokara desu!\n";
+    Config config = parse_config("../config.ini");
+    print_config(config);
 
-    Config config = parseConfig("../config.ini");
-    printConfig(config);
+    std::random_device random_device;
+    std::mt19937 generator(random_device());
+
+    std::vector <double> * function = generate_solution(string_to_function_map[config.function], config.argument_multiplier, config.constant);
+
+    for (const auto & a : * function) {
+        std::cout << a << ' ';
+    }
+    std::cout << '\n';
 
     return 0;
 
