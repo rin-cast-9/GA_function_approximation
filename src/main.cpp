@@ -115,6 +115,13 @@ int main() {
     }
     std::cout << '\n';
 
+    std::vector <double> * solution = generate_solution(generator, 0.0, 1.0);
+
+    for (const auto & a : * solution) {
+        std::cout << a << ' ';
+    }
+    std::cout << '\n';
+
     return 0;
 
 }
