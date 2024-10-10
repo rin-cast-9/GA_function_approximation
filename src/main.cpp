@@ -25,6 +25,7 @@ struct Config {
     double step;
     int population_size;
     double mutation_rate;
+    int cycles;
     int constant;
     std::string function;
     int argument_multiplier;
@@ -38,6 +39,7 @@ Config parse_config(const std::string & file_path) {
     config.step = ptree.get <double> ("step");
     config.population_size = ptree.get <int> ("population_size");
     config.mutation_rate = ptree.get <double> ("mutation_rate");
+    config.cycles = ptree.get <int> ("cycles");
     config.constant = ptree.get <int> ("function.constant");
     config.function = ptree.get <std::string> ("function.function");
     config.argument_multiplier = ptree.get <int> ("function.argument_multiplier");
@@ -49,6 +51,7 @@ void print_config(const Config & config) {
     std::cout << "step: " << config.step << '\n';
     std::cout << "population size: " << config.population_size << '\n';
     std::cout << "mutation rate: " << config.mutation_rate << '\n';
+    std::cout << "cycles: " << config.cycles << '\n';
     std::cout << "function: ";
     if (config.constant != 0) {
         std::cout << config.constant << " + ";
@@ -73,16 +76,13 @@ void print_config(const Config & config) {
 std::vector<double> * generate_solution(const Func & function, const int multiplier, const int constant) {
     auto * solution = new std::vector <double> ();
 
-    if (function == square) {
-        for (double x = 0; x <= 10.0; x += 0.1) {
+    for (double x = 0; x <= 10.0; x += 0.1) {
+        if (function == square) {
             solution->push_back(static_cast <double> (constant) + function(x) * static_cast <double> (multiplier));
         }
-
-        return solution;
-    }
-
-    for (double x = 0; x <= 10.0; x += 0.1) {
-        solution->push_back(static_cast <double> (constant) + function(x * static_cast <double> (multiplier)));
+        else {
+            solution->push_back(static_cast <double> (constant) + function(x * static_cast <double> (multiplier)));
+        }
     }
 
     return solution;
@@ -90,8 +90,8 @@ std::vector<double> * generate_solution(const Func & function, const int multipl
 
 std::vector<double> * generate_solution(std::mt19937 & generator, const double min_value, const double max_value) {
     std::uniform_real_distribution <> distribution(min_value, max_value);
-
     auto * solution = new std::vector <double> (101);
+
     for (auto & element : * solution) {
         element = distribution(generator);
     }
@@ -118,6 +118,34 @@ void test_generated_solutions() {
         std::cout << a << ' ';
     }
     std::cout << '\n';
+
+    delete function;
+    delete solution;
+}
+
+std::vector <std::vector <double>> * create_population(const Config & config, std::mt19937 & generator) {
+    auto * population = new std::vector <std::vector <double>>();
+
+    for (int i = 0; i < config.population_size; ++ i) {
+        population->push_back(* generate_solution(generator, -10.0, 10.0));
+    }
+
+    return population;
+}
+
+void ga_loop(std::vector <std::vector <double>> * population, const Config & config, std::mt19937 & generator) {
+    for (int cycle = 0; cycle < config.cycles; ++ cycle) {
+        // step 1 crossover
+
+        // step 2 mutation
+
+        // step 3 fitness value evaluation
+
+        // step 4 selection
+
+        // break conditions
+        
+    }
 }
 
 
@@ -125,6 +153,13 @@ int main() {
 
     Config config = parse_config("../config.ini");
     print_config(config);
+
+    std::random_device random_device;
+    std::mt19937 generator(random_device());
+
+    auto * population = create_population(config, generator);
+
+    ga_loop(population, config, generator);
 
     return 0;
 
