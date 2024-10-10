@@ -3,6 +3,7 @@
 #include <map>
 #include <cmath>
 #include <random>
+#include <memory>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/ini_parser.hpp>
 
@@ -29,6 +30,13 @@ struct Config {
     int constant;
     std::string function;
     int argument_multiplier;
+};
+
+struct Individual {
+    double fitness;
+    std::unique_ptr <std::vector <double>> solution;
+
+    Individual(double fit, std::unique_ptr <std::vector <double>> sol) : fitness(fit), solution(std::move(sol)) {}
 };
 
 Config parse_config(const std::string & file_path) {
@@ -73,8 +81,8 @@ void print_config(const Config & config) {
 }
 
 
-std::vector<double> * generate_solution(const Func & function, const int multiplier, const int constant) {
-    auto * solution = new std::vector <double> ();
+std::unique_ptr <std::vector <double>> generate_solution(const Func & function, const int multiplier, const int constant) {
+    auto solution = std::make_unique <std::vector <double>> ();
 
     for (double x = 0; x <= 10.0; x += 0.1) {
         if (function == square) {
@@ -88,15 +96,16 @@ std::vector<double> * generate_solution(const Func & function, const int multipl
     return solution;
 }
 
-std::vector<double> * generate_solution(std::mt19937 & generator, const double min_value, const double max_value) {
+std::unique_ptr <Individual> generate_solution(std::mt19937 & generator, const double min_value, const double max_value) {
     std::uniform_real_distribution <> distribution(min_value, max_value);
-    auto * solution = new std::vector <double> (101);
+
+    auto solution = std::make_unique <std::vector <double>> (101);
 
     for (auto & element : * solution) {
         element = distribution(generator);
     }
 
-    return solution;
+    return std::make_unique <Individual> (0, std::move(solution));
 }
 
 void test_generated_solutions() {
@@ -105,35 +114,32 @@ void test_generated_solutions() {
     std::random_device random_device;
     std::mt19937 generator(random_device());
 
-    std::vector <double> * function = generate_solution(string_to_function_map[config.function], config.argument_multiplier, config.constant);
+    auto function = generate_solution(string_to_function_map[config.function], config.argument_multiplier, config.constant);
 
     for (const auto & a : * function) {
         std::cout << a << ' ';
     }
     std::cout << '\n';
 
-    std::vector <double> * solution = generate_solution(generator, 0.0, 1.0);
+    auto individual = generate_solution(generator, 0.0, 1.0);
 
-    for (const auto & a : * solution) {
+    for (const auto & a : * (individual->solution)) {
         std::cout << a << ' ';
     }
     std::cout << '\n';
-
-    delete function;
-    delete solution;
 }
 
-std::vector <std::vector <double>> * create_population(const Config & config, std::mt19937 & generator) {
-    auto * population = new std::vector <std::vector <double>>();
+std::unique_ptr <std::vector <std::unique_ptr <Individual>>> create_population(const Config & config, std::mt19937 & generator) {
+    auto population = std::make_unique <std::vector <std::unique_ptr <Individual>>> ();
 
     for (int i = 0; i < config.population_size; ++ i) {
-        population->push_back(* generate_solution(generator, -10.0, 10.0));
+        population->push_back(generate_solution(generator, -10.0, 10.0));
     }
 
     return population;
 }
 
-void ga_loop(std::vector <std::vector <double>> * population, const Config & config, std::mt19937 & generator) {
+void ga_loop(const std::unique_ptr <std::vector <std::unique_ptr <Individual>>> & population, const Config & config, std::mt19937 & generator) {
     for (int cycle = 0; cycle < config.cycles; ++ cycle) {
         // step 1 crossover
 
@@ -144,8 +150,18 @@ void ga_loop(std::vector <std::vector <double>> * population, const Config & con
         // step 4 selection
 
         // break conditions
-        
+
     }
+
+    for (const auto & individual : * population) {
+        for (int i = 0; i < 3; ++ i) {
+            std::cout << individual->solution->at(i) << ' ';
+        }
+
+        std::cout << '\n';
+    }
+
+    std::cout << "all " << config.cycles << " cycles completed terminating the program...\n";
 }
 
 
@@ -157,7 +173,7 @@ int main() {
     std::random_device random_device;
     std::mt19937 generator(random_device());
 
-    auto * population = create_population(config, generator);
+    auto population = create_population(config, generator);
 
     ga_loop(population, config, generator);
 
