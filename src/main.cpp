@@ -119,10 +119,6 @@ Config parse_config(const std::string & file_path) {
     validate_crossover_strategy(config.crossover_strategy);
     validate_function(config.constant, config.function, config.argument_multiplier);
 
-    if (config.crossover_strategy < 0 || config.crossover_strategy > 3) {
-        std::cerr << "could not validate the configuration parameters\n";
-    }
-
     return config;
 }
 
