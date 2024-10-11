@@ -72,6 +72,31 @@ void validate_cycles(int cycles) {
     }
 }
 
+void validate_crossover_strategy(int crossover_strategy) {
+    if (crossover_strategy < 0 || crossover_strategy > 3) {
+        std::cerr << "invalid crossover strategy value\n";
+        throw std::invalid_argument("invalid crossover strategy value\n");
+    }
+}
+
+void validate_function(int constant, std::string function, int argument_multiplier) {
+    if (constant != 0 && constant != 1) {
+        std::cerr << "invalid function constant value\n";
+        throw std::invalid_argument("invalid function constant value\n");
+    }
+
+    auto string_to_function_map_iterator = string_to_function_map.find(function);
+    if (string_to_function_map_iterator == string_to_function_map.end()) {
+        std::cerr << "invalid function name\n";
+        throw std::invalid_argument("invalid function name\n");
+    }
+
+    if (argument_multiplier < 1 || argument_multiplier > 4) {
+        std::cerr << "invalid function argument multiplier value\n";
+        throw std::invalid_argument("invalid function argument multiplier value\n");
+    }
+}
+
 Config parse_config(const std::string & file_path) {
     Config config;
     boost::property_tree::ptree ptree;
@@ -90,7 +115,9 @@ Config parse_config(const std::string & file_path) {
     validate_config_step(config.step);
     validate_population_size(config.population_size, config.max_population_size);
     validate_mutation_rate(config.mutation_rate);
-
+    validate_cycles(config.cycles);
+    validate_crossover_strategy(config.crossover_strategy);
+    validate_function(config.constant, config.function, config.argument_multiplier);
 
     if (config.crossover_strategy < 0 || config.crossover_strategy > 3) {
         std::cerr << "could not validate the configuration parameters\n";
@@ -102,8 +129,10 @@ Config parse_config(const std::string & file_path) {
 void print_config(const Config & config) {
     std::cout << "step: " << config.step << '\n';
     std::cout << "population size: " << config.population_size << '\n';
+    std::cout << "max population size: " << config.max_population_size << '\n';
     std::cout << "mutation rate: " << config.mutation_rate << '\n';
     std::cout << "cycles: " << config.cycles << '\n';
+    std::cout << "crossover strategy: " << config.crossover_strategy << '\n';
     std::cout << "function: ";
     if (config.constant != 0) {
         std::cout << config.constant << " + ";
