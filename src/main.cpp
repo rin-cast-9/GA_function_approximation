@@ -4,6 +4,7 @@
 #include <cmath>
 #include <random>
 #include <memory>
+#include <set>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/ini_parser.hpp>
 
@@ -25,8 +26,10 @@ std::map <std::string, Func> string_to_function_map = {
 struct Config {
     double step;
     int population_size;
+    int max_population_size;
     double mutation_rate;
     int cycles;
+    int crossover_strategy;
     int constant;
     std::string function;
     int argument_multiplier;
@@ -39,6 +42,36 @@ struct Individual {
     Individual(double fit, std::unique_ptr <std::vector <double>> sol) : fitness(fit), solution(std::move(sol)) {}
 };
 
+void validate_config_step(double step) {
+    std::set <double> valid_steps = {0.01, 0.02, 0.05, 0.1, 0.2, 0.5};
+
+    if (valid_steps.find(step) == valid_steps.end()) {
+        std::cerr << "invalid step value\n";
+        throw std::invalid_argument("invalid step value");
+    }
+}
+
+void validate_population_size(int population_size, int max_population_size) {
+    if (max_population_size <= population_size) {
+        std::cerr << "invalid population and / or max population size value\n";
+        throw std::invalid_argument("invalid population and / or max population size value\n");
+    }
+}
+
+void validate_mutation_rate(double mutation_rate) {
+    if (mutation_rate < 0.0 || mutation_rate > 1.0) {
+        std::cerr << "invalid mutation rate value\n";
+        throw std::invalid_argument("invalid mutation rate value\n");
+    }
+}
+
+void validate_cycles(int cycles) {
+    if (cycles < 0) {
+        std::cerr << "invalid cycles value\n";
+        throw std::invalid_argument("invalid cycles value\n");
+    }
+}
+
 Config parse_config(const std::string & file_path) {
     Config config;
     boost::property_tree::ptree ptree;
@@ -46,11 +79,22 @@ Config parse_config(const std::string & file_path) {
 
     config.step = ptree.get <double> ("step");
     config.population_size = ptree.get <int> ("population_size");
+    config.max_population_size = ptree.get <int> ("max_population_size");
     config.mutation_rate = ptree.get <double> ("mutation_rate");
     config.cycles = ptree.get <int> ("cycles");
+    config.crossover_strategy = ptree.get <int> ("crossover_strategy");
     config.constant = ptree.get <int> ("function.constant");
     config.function = ptree.get <std::string> ("function.function");
     config.argument_multiplier = ptree.get <int> ("function.argument_multiplier");
+
+    validate_config_step(config.step);
+    validate_population_size(config.population_size, config.max_population_size);
+    validate_mutation_rate(config.mutation_rate);
+
+
+    if (config.crossover_strategy < 0 || config.crossover_strategy > 3) {
+        std::cerr << "could not validate the configuration parameters\n";
+    }
 
     return config;
 }
@@ -109,7 +153,7 @@ std::unique_ptr <Individual> generate_solution(std::mt19937 & generator, const d
 }
 
 void test_generated_solutions() {
-    Config config = parse_config("../config.ini");
+    Config config = parse_config("../config.conf");
 
     std::random_device random_device;
     std::mt19937 generator(random_device());
@@ -139,9 +183,34 @@ std::unique_ptr <std::vector <std::unique_ptr <Individual>>> create_population(c
     return population;
 }
 
+std::unique_ptr <Individual> execute_crossover(const Individual & parent1, const Individual & parent2) {
+    auto child_individual = std::make_unique <std::vector <double>> (parent1.solution->size());
+    // to come
+
+    return nullptr;
+}
+
+std::pair <int, int> choose_crossover_candidates(std::mt19937 & generator, int population_size) {
+    std::uniform_int_distribution <int> distribution(0, population_size - 1);
+
+    int candidate1 = distribution(generator);
+    int candidate2 = distribution(generator);
+
+    do {
+        candidate2 = distribution(generator);
+    } while (candidate1 == candidate2);
+
+    return {candidate1, candidate2};
+}
+
 void ga_loop(const std::unique_ptr <std::vector <std::unique_ptr <Individual>>> & population, const Config & config, std::mt19937 & generator) {
     for (int cycle = 0; cycle < config.cycles; ++ cycle) {
         // step 1 crossover
+        auto crossover_candidates = choose_crossover_candidates(generator, config.population_size);
+        population->push_back(execute_crossover(
+            * population->at(crossover_candidates.first),
+            * population->at(crossover_candidates.second)
+        ));
 
         // step 2 mutation
 
@@ -167,15 +236,15 @@ void ga_loop(const std::unique_ptr <std::vector <std::unique_ptr <Individual>>> 
 
 int main() {
 
-    Config config = parse_config("../config.ini");
+    Config config = parse_config("../config.conf");
     print_config(config);
 
     std::random_device random_device;
     std::mt19937 generator(random_device());
 
-    auto population = create_population(config, generator);
+    // auto population = create_population(config, generator);
 
-    ga_loop(population, config, generator);
+    // ga_loop(population, config, generator);
 
     return 0;
 
