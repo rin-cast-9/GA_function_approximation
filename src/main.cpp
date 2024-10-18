@@ -52,7 +52,19 @@ void validate_config_step(double step) {
 }
 
 void validate_population_size(int population_size, int max_population_size) {
-    if (max_population_size <= population_size) {
+    int minimal_max_size = population_size + 2;
+
+    if (max_population_size < minimal_max_size) {
+        std::cerr << "invalid population and / or max population size value\n";
+        throw std::invalid_argument("invalid population and / or max population size value\n");
+    }
+
+    if ((population_size % 2 == 0) && (max_population_size % 2 != 0)) {
+        std::cerr << "invalid population and / or max population size value\n";
+        throw std::invalid_argument("invalid population and / or max population size value\n");
+    }
+
+    if ((population_size % 2 != 0) && (max_population_size % 2 == 0)) {
         std::cerr << "invalid population and / or max population size value\n";
         throw std::invalid_argument("invalid population and / or max population size value\n");
     }
@@ -73,7 +85,7 @@ void validate_cycles(int cycles) {
 }
 
 void validate_crossover_strategy(int crossover_strategy) {
-    if (crossover_strategy < 0 || crossover_strategy > 3) {
+    if (crossover_strategy < 0 || crossover_strategy > 2) {
         std::cerr << "invalid crossover strategy value\n";
         throw std::invalid_argument("invalid crossover strategy value\n");
     }
@@ -208,11 +220,75 @@ std::unique_ptr <std::vector <std::unique_ptr <Individual>>> create_population(c
     return population;
 }
 
-std::unique_ptr <Individual> execute_crossover(const Individual & parent1, const Individual & parent2) {
-    auto child_individual = std::make_unique <std::vector <double>> (parent1.solution->size());
-    // to come
+void crossover_type1(const Individual & parent1, const Individual & parent2, std::vector <double> & child1_solution, std::vector <double> & child2_solution, std::mt19937 & generator) {
+    std::uniform_int_distribution <int> distribution(0, parent1.solution->size() - 1);
+    int crossover_point = distribution(generator);
+    size_t size = parent1.solution->size();
 
-    return nullptr;
+    for (size_t i = 0; i < crossover_point; ++ i) {
+        child1_solution[i] = parent1.solution->at(i);
+        child2_solution[i] = parent2.solution->at(i);
+    }
+    for (size_t i = crossover_point; i < parent2.solution->size(); ++ i) {
+        child1_solution[i] = parent2.solution->at(i);
+        child2_solution[i] = parent1.solution->at(i);
+    }
+}
+
+void crossover_type2(const Individual & parent1, const Individual & parent2, std::vector <double> & child1_solution, std::vector <double> & child2_solution, std::mt19937 & generator) {
+    std::uniform_int_distribution <int> distribution(0, 1);
+    size_t size = parent1.solution->size();
+
+    for (size_t i = 0; i < size; ++ i) {
+        if (distribution(generator) == 0) {
+            child1_solution[i] = parent1.solution->at(i);
+            child2_solution[i] = parent2.solution->at(i);
+        }
+        else {
+            child1_solution[i] = parent2.solution->at(i);
+            child2_solution[i] = parent1.solution->at(i);
+        }
+    }
+}
+
+void crossover_type3(const Individual & parent1, const Individual & parent2, std::vector <double> & child1_solution, std::vector <double> & child2_solution, std::mt19937 & generator) {
+    std::uniform_int_distribution <double> random_threshold(0.0, 1.0);
+    double threshold = random_threshold(generator);
+    size_t size = parent1.solution->size();
+
+    for (size_t i = 0; i < size; ++ i) {
+        double y = random_threshold(generator);
+        if (y < threshold) {
+            child1_solution[i] = parent1.solution->at(i);
+            child2_solution[i] = parent2.solution->at(i);
+        }
+        else {
+            child1_solution[i] = parent2.solution->at(i);
+            child2_solution[i] = parent1.solution->at(i);
+        }
+    }
+}
+
+std::pair<std::unique_ptr <Individual>, std::unique_ptr <Individual>> execute_crossover(const Individual & parent1, const Individual & parent2, std::mt19937 & generator, int crossover_strategy) {
+    auto child_individual1 = std::make_unique <std::vector <double>> (parent1.solution->size());
+    auto child_individual2 = std::make_unique <std::vector <double>> (parent1.solution->size());
+    
+    switch (crossover_strategy) {
+    case 1:
+        crossover_type1(parent1, parent2, * child_individual1, * child_individual2, generator);
+        break;
+    case 2:
+        crossover_type2(parent1, parent2, * child_individual1, * child_individual2, generator);
+        break;
+    case 3:
+        crossover_type3(parent1, parent2, * child_individual1, * child_individual2, generator);
+        break;
+    }
+
+    auto child1 = std::make_unique <Individual> (0.0, std::move(child_individual1));
+    auto child2 = std::make_unique <Individual> (0.0, std::move(child_individual2));
+
+    return std::make_pair(std::move(child1), std::move(child2));
 }
 
 std::pair <int, int> choose_crossover_candidates(std::mt19937 & generator, int population_size) {
@@ -231,11 +307,24 @@ std::pair <int, int> choose_crossover_candidates(std::mt19937 & generator, int p
 void ga_loop(const std::unique_ptr <std::vector <std::unique_ptr <Individual>>> & population, const Config & config, std::mt19937 & generator) {
     for (int cycle = 0; cycle < config.cycles; ++ cycle) {
         // step 1 crossover
-        auto crossover_candidates = choose_crossover_candidates(generator, config.population_size);
-        population->push_back(execute_crossover(
-            * population->at(crossover_candidates.first),
-            * population->at(crossover_candidates.second)
-        ));
+        if (population->size() < 2) {
+            std::cerr << "population size is too small for crossover.\n";
+            throw std::runtime_error("population size must be at least 2 for crossover.\n");
+        }
+
+        while (population->size() < config.max_population_size) {
+            auto crossover_candidates = choose_crossover_candidates(generator, config.population_size);
+
+            auto children = execute_crossover(
+                * population->at(crossover_candidates.first),
+                * population->at(crossover_candidates.second),
+                generator,
+                config.crossover_strategy
+            );
+
+            population->push_back(std::move(children.first));
+            population->push_back(std::move(children.second));
+        }
 
         // step 2 mutation
 
