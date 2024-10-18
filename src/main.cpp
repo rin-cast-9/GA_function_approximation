@@ -252,7 +252,7 @@ void crossover_type2(const Individual & parent1, const Individual & parent2, std
 }
 
 void crossover_type3(const Individual & parent1, const Individual & parent2, std::vector <double> & child1_solution, std::vector <double> & child2_solution, std::mt19937 & generator) {
-    std::uniform_int_distribution <double> random_threshold(0.0, 1.0);
+    std::uniform_real_distribution <double> random_threshold(0.0, 1.0);
     double threshold = random_threshold(generator);
     size_t size = parent1.solution->size();
 
@@ -306,6 +306,8 @@ std::pair <int, int> choose_crossover_candidates(std::mt19937 & generator, int p
 
 void ga_loop(const std::unique_ptr <std::vector <std::unique_ptr <Individual>>> & population, const Config & config, std::mt19937 & generator) {
     for (int cycle = 0; cycle < config.cycles; ++ cycle) {
+
+        std::cout << population->size() << '\n';
         // step 1 crossover
         if (population->size() < 2) {
             std::cerr << "population size is too small for crossover.\n";
@@ -325,6 +327,8 @@ void ga_loop(const std::unique_ptr <std::vector <std::unique_ptr <Individual>>> 
             population->push_back(std::move(children.first));
             population->push_back(std::move(children.second));
         }
+
+        std::cout << population->size() << '\n';
 
         // step 2 mutation
 
@@ -356,9 +360,9 @@ int main() {
     std::random_device random_device;
     std::mt19937 generator(random_device());
 
-    // auto population = create_population(config, generator);
+    auto population = create_population(config, generator);
 
-    // ga_loop(population, config, generator);
+    ga_loop(population, config, generator);
 
     return 0;
 
