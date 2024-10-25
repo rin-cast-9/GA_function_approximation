@@ -33,6 +33,8 @@ struct Config {
     int constant;
     std::string function;
     int argument_multiplier;
+    double min_range;
+    double max_range;
 };
 
 struct Individual {
@@ -109,6 +111,13 @@ void validate_function(int constant, std::string function, int argument_multipli
     }
 }
 
+void validate_range(double min_range, double max_range) {
+    if (min_range >= max_range) {
+        std::cerr << "invalid range values\n";
+        throw std::invalid_argument("invalid range values\n");
+    }
+}
+
 Config parse_config(const std::string & file_path) {
     Config config;
     boost::property_tree::ptree ptree;
@@ -123,6 +132,8 @@ Config parse_config(const std::string & file_path) {
     config.constant = ptree.get <int> ("function.constant");
     config.function = ptree.get <std::string> ("function.function");
     config.argument_multiplier = ptree.get <int> ("function.argument_multiplier");
+    config.min_range = ptree.get <double> ("min_range");
+    config.max_range = ptree.get <double> ("max_range");
 
     validate_config_step(config.step);
     validate_population_size(config.population_size, config.max_population_size);
@@ -130,6 +141,7 @@ Config parse_config(const std::string & file_path) {
     validate_cycles(config.cycles);
     validate_crossover_strategy(config.crossover_strategy);
     validate_function(config.constant, config.function, config.argument_multiplier);
+    validate_range(config.min_range, config.max_range);
 
     return config;
 }
@@ -162,10 +174,10 @@ void print_config(const Config & config) {
 }
 
 
-std::unique_ptr <std::vector <double>> generate_solution(const Func & function, const int multiplier, const int constant) {
+std::unique_ptr <std::vector <double>> generate_solution(const Func & function, const int multiplier, const int constant, const double step) {
     auto solution = std::make_unique <std::vector <double>> ();
 
-    for (double x = 0; x <= 10.0; x += 0.1) {
+    for (double x = 0; x <= 10.0; x += step) {
         if (function == square) {
             solution->push_back(static_cast <double> (constant) + function(x) * static_cast <double> (multiplier));
         }
@@ -177,10 +189,10 @@ std::unique_ptr <std::vector <double>> generate_solution(const Func & function, 
     return solution;
 }
 
-std::unique_ptr <Individual> generate_solution(std::mt19937 & generator, const double min_value, const double max_value) {
+std::unique_ptr <Individual> generate_solution(std::mt19937 & generator, const double min_value, const double max_value, const double step) {
     std::uniform_real_distribution <> distribution(min_value, max_value);
 
-    auto solution = std::make_unique <std::vector <double>> (101);
+    auto solution = std::make_unique <std::vector <double>> ((int)(10.0 / step) + 1);
 
     for (auto & element : * solution) {
         element = distribution(generator);
@@ -195,14 +207,14 @@ void test_generated_solutions() {
     std::random_device random_device;
     std::mt19937 generator(random_device());
 
-    auto function = generate_solution(string_to_function_map[config.function], config.argument_multiplier, config.constant);
+    auto function = generate_solution(string_to_function_map[config.function], config.argument_multiplier, config.constant, config.step);
 
     for (const auto & a : * function) {
         std::cout << a << ' ';
     }
     std::cout << '\n';
 
-    auto individual = generate_solution(generator, 0.0, 1.0);
+    auto individual = generate_solution(generator, 0.0, 1.0, config.step);
 
     for (const auto & a : * (individual->solution)) {
         std::cout << a << ' ';
@@ -214,7 +226,7 @@ std::unique_ptr <std::vector <std::unique_ptr <Individual>>> create_population(c
     auto population = std::make_unique <std::vector <std::unique_ptr <Individual>>> ();
 
     for (int i = 0; i < config.population_size; ++ i) {
-        population->push_back(generate_solution(generator, -10.0, 10.0));
+        population->push_back(generate_solution(generator, config.min_range, config.max_range, config.step));
     }
 
     return population;
@@ -274,13 +286,13 @@ std::pair<std::unique_ptr <Individual>, std::unique_ptr <Individual>> execute_cr
     auto child_individual2 = std::make_unique <std::vector <double>> (parent1.solution->size());
     
     switch (crossover_strategy) {
-    case 1:
+    case 0:
         crossover_type1(parent1, parent2, * child_individual1, * child_individual2, generator);
         break;
-    case 2:
+    case 1:
         crossover_type2(parent1, parent2, * child_individual1, * child_individual2, generator);
         break;
-    case 3:
+    case 2:
         crossover_type3(parent1, parent2, * child_individual1, * child_individual2, generator);
         break;
     }
@@ -307,7 +319,6 @@ std::pair <int, int> choose_crossover_candidates(std::mt19937 & generator, int p
 void ga_loop(const std::unique_ptr <std::vector <std::unique_ptr <Individual>>> & population, const Config & config, std::mt19937 & generator) {
     for (int cycle = 0; cycle < config.cycles; ++ cycle) {
 
-        std::cout << population->size() << '\n';
         // step 1 crossover
         if (population->size() < 2) {
             std::cerr << "population size is too small for crossover.\n";
@@ -327,8 +338,6 @@ void ga_loop(const std::unique_ptr <std::vector <std::unique_ptr <Individual>>> 
             population->push_back(std::move(children.first));
             population->push_back(std::move(children.second));
         }
-
-        std::cout << population->size() << '\n';
 
         // step 2 mutation
 
@@ -354,7 +363,7 @@ void ga_loop(const std::unique_ptr <std::vector <std::unique_ptr <Individual>>> 
 
 int main() {
 
-    Config config = parse_config("../config.conf");
+    Config config = parse_config(std::string(PROJECT_ROOT_DIR) + "/config.conf");
     print_config(config);
 
     std::random_device random_device;
