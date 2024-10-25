@@ -316,6 +316,23 @@ std::pair <int, int> choose_crossover_candidates(std::mt19937 & generator, int p
     return {candidate1, candidate2};
 }
 
+std::unique_ptr <std::vector <size_t>> choose_mutation_candidate(
+    std::mt19937 & generator,
+    const size_t max_population_size,
+    const double mutation_rate) {
+    auto candidates = std::make_unique <std::vector <size_t>> ();
+
+    std::uniform_real_distribution <double> distribution(0.0, 1.0);
+    
+    for (size_t i = 0; i < max_population_size; ++ i) {
+        if (distribution(generator) < mutation_rate) {
+            candidates->push_back(i);
+        }
+    }
+
+    return std::move(candidates);
+}
+
 void ga_loop(const std::unique_ptr <std::vector <std::unique_ptr <Individual>>> & population, const Config & config, std::mt19937 & generator) {
     for (int cycle = 0; cycle < config.cycles; ++ cycle) {
 
@@ -340,6 +357,11 @@ void ga_loop(const std::unique_ptr <std::vector <std::unique_ptr <Individual>>> 
         }
 
         // step 2 mutation
+        auto mutation_candidates = choose_mutation_candidate(generator, config.max_population_size, config.mutation_rate);
+
+        for (const auto & candidate_index : * mutation_candidates) {
+            // mutate individual
+        }
 
         // step 3 fitness value evaluation
 
