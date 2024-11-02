@@ -1,8 +1,30 @@
 #include "GeneticAlgorithm.hpp"
+#include "Individual.hpp"
+#include <cstddef>
+#include <cstdlib>
 #include <memory>
+#include <random>
+#include <utility>
 #include <vector>
 #include <iomanip>
 #include <iostream>
+#include <future>
+
+
+CrossoverFunction crossover_functions[] = {
+    single_thread_crossover,
+    parallel_crossover
+};
+
+MutationFunction mutation_functions[] = {
+    execute_mutation,
+    parallel_mutation
+};
+
+FitnessFunction fitness_functions[] = {
+    evaluate_fitness,
+    parallel_evaluate_fitness
+};
 
 std::unique_ptr <std::vector <double>> generate_solution(
     const Func & function,
@@ -108,6 +130,36 @@ void crossover_type3(
     }
 }
 
+void crossover_type4(
+    const Individual & parent1,
+    const Individual & parent2,
+    std::vector<double> & child1_solution,
+    std::vector<double> & child2_solution,
+    std::mt19937 & generator
+) {
+    size_t size = parent1.solution->size();
+
+    for (size_t i = 0; i < size; ++ i) {
+        std::uniform_real_distribution <double> distribution(
+            std::min(parent1.solution->at(i), parent2.solution->at(i)),
+            std::max(parent1.solution->at(i), parent2.solution->at(i))
+        );
+
+        double random_point = distribution(generator);
+        child1_solution[i] = random_point;
+
+        double distance_to_parent1 = std::abs(random_point - parent1.solution->at(i));
+        double distance_to_parent2 = std::abs(random_point - parent2.solution->at(i));
+
+        if (distance_to_parent1 < distance_to_parent2) {
+                    child2_solution[i] = parent2.solution->at(i) + (distance_to_parent1 * (parent1.solution->at(i) < parent2.solution->at(i) ? 1 : -1));
+        }
+        else {
+            child2_solution[i] = parent1.solution->at(i) + (distance_to_parent2 * (parent1.solution->at(i) < parent2.solution->at(i) ? -1 : 1));
+        }
+    }
+}
+
 std::pair<std::unique_ptr <Individual>, std::unique_ptr <Individual>> execute_crossover(
     const Individual & parent1,
     const Individual & parent2,
@@ -117,7 +169,7 @@ std::pair<std::unique_ptr <Individual>, std::unique_ptr <Individual>> execute_cr
     const size_t solution_size = parent1.solution->size();
     auto child_individual1 = std::make_unique <std::vector <double>> (solution_size);
     auto child_individual2 = std::make_unique <std::vector <double>> (solution_size);
-    
+
     switch (crossover_strategy) {
     case 0:
         crossover_type1(parent1, parent2, * child_individual1, * child_individual2, generator);
@@ -128,12 +180,101 @@ std::pair<std::unique_ptr <Individual>, std::unique_ptr <Individual>> execute_cr
     case 2:
         crossover_type3(parent1, parent2, * child_individual1, * child_individual2, generator);
         break;
+    case 3:
+        crossover_type4(parent1, parent2, * child_individual1, * child_individual2, generator);
+        break;
     }
 
     auto child1 = std::make_unique <Individual> (0.0, std::move(child_individual1));
     auto child2 = std::make_unique <Individual> (0.0, std::move(child_individual2));
 
     return std::make_pair(std::move(child1), std::move(child2));
+}
+
+void parallel_crossover(
+    std::vector <std::unique_ptr <Individual>> & population,
+    std::mt19937 & generator,
+    const int population_size,
+    const int max_population_size,
+    const int crossover_strategy
+) {
+    // std::vector <std::pair <std::unique_ptr <Individual>, std::unique_ptr <Individual>>> new_individuals;
+
+    population.resize(max_population_size);
+
+    size_t pairs_to_crossover = (max_population_size - population_size) / 2;
+
+    std::vector <std::future <std::pair <std::unique_ptr <Individual>, std::unique_ptr <Individual>>>> futures;
+
+    for (size_t i = 0; i < pairs_to_crossover; ++ i) {
+        auto crossover_candidates = choose_crossover_candidates(generator, population_size);
+
+        futures.push_back(std::async(std::launch::async, [&](){
+            return execute_crossover(
+                * population[crossover_candidates.first],
+                * population[crossover_candidates.second],
+                generator,
+                crossover_strategy
+            );
+        }));
+    }
+
+    for (size_t i = 0; i < futures.size(); ++ i) {
+        auto children = futures[i].get();
+
+        population[population_size + (i * 2)] = std::move(children.first);
+        population[population_size + (i * 2) + 1] = std::move(children.second);
+    }
+
+    // for (auto & future : futures) {
+    //     new_individuals.push_back(future.get());
+    // }
+
+    // for (auto & children : new_individuals) {
+    //     population.push_back(std::move(children.first));
+    //     population.push_back(std::move(children.second));
+    // }
+
+    // while (population.size() < max_population_size) {
+    //     futures.push_back(std::async(std::launch::async, [&] () {
+    //         auto crossover_candidates = choose_crossover_candidates(generator, population_size);
+
+    //         auto children = execute_crossover(
+    //             * population[crossover_candidates.first],
+    //             * population[crossover_candidates.second],
+    //             generator,
+    //             crossover_strategy
+    //         );
+
+    //         {
+    //             std::lock_guard<std::mutex> lock(population_mutex);
+    //             population.push_back(std::move(children.first));
+    //             population.push_back(std::move(children.second));
+    //         }
+    //     }));
+    // }
+}
+
+void single_thread_crossover(
+    std::vector <std::unique_ptr<Individual>> & population,
+    std::mt19937 & generator,
+    const int population_size,
+    const int max_population_size,
+    const int crossover_strategy
+) {
+    while (population.size() < max_population_size) {
+        auto crossover_candidates = choose_crossover_candidates(generator, population_size);
+
+        auto children = execute_crossover(
+            * population[crossover_candidates.first],
+            * population[crossover_candidates.second],
+            generator,
+            crossover_strategy
+        );
+
+        population.push_back(std::move(children.first));
+        population.push_back(std::move(children.second));
+    }
 }
 
 std::pair <int, int> choose_crossover_candidates(
@@ -152,22 +293,22 @@ std::pair <int, int> choose_crossover_candidates(
     return {candidate1, candidate2};
 }
 
-std::unique_ptr <std::vector <size_t>> choose_mutation_candidate(
+std::vector <size_t> choose_mutation_candidate(
     std::mt19937 & generator,
     const size_t max_population_size,
     const double mutation_rate
 ) {
-    auto candidates = std::make_unique <std::vector <size_t>> ();
+    auto candidates = std::vector <size_t> ();
 
     std::bernoulli_distribution distribution(mutation_rate);
-    
+
     for (size_t i = 0; i < max_population_size; ++ i) {
         if (distribution(generator)) {
-            candidates->push_back(i);
+            candidates.push_back(i);
         }
     }
 
-    return std::move(candidates);
+    return candidates;
 }
 
 void execute_mutation(
@@ -176,20 +317,55 @@ void execute_mutation(
     const double average_fitness_value,
     const double min_range,
     const double max_range,
+    const double step,
     std::mt19937 & generator
 ) {
     const double range = std::abs(max_range - min_range);
-    const double mutation_strength = ((average_fitness_value / (range / 2.0)) > (range / 2.0)) ? 1.0 : (average_fitness_value / (range / 2.0));
+    const double mutation_strength = average_fitness_value / (((int)(10.0 / step) + 1) * range);
 
     std::uniform_real_distribution <double> distribution(-range, range);
 
     for (const auto & candidate_index : mutation_candidates) {
         auto & individual = population[candidate_index];
+        auto & solution = * individual->solution;
 
-        for (double & element : * individual->solution) {
+        for (double & element : solution) {
             double mutation_value = distribution(generator) * mutation_strength;
             element += mutation_value;
         }
+    }
+}
+
+void parallel_mutation(
+    const std::vector <std::unique_ptr <Individual>> & population,
+    const std::vector <size_t> & mutation_candidates,
+    const double average_fitness_value,
+    const double min_range,
+    const double max_range,
+    const double step,
+    std::mt19937 & generator
+) {
+    const double range = std::abs(max_range - min_range);
+    const double mutation_strength = average_fitness_value / (((int)(10.0 / step) + 1) * range);
+
+    std::uniform_real_distribution <double> distribution(-range, range);
+
+    std::vector <std::future <void>> futures;
+
+    for (const auto & candidate_index : mutation_candidates) {
+        futures.push_back(std::async(std::launch::async, [&, candidate_index]() {
+            auto & individual = population[candidate_index];
+            auto & solution = * individual->solution;
+
+            for (double & element : solution) {
+                double mutation_value = distribution(generator) * mutation_strength;
+                element += mutation_value;
+            }
+        }));
+    }
+
+    for (auto & future : futures) {
+        future.get();
     }
 }
 
@@ -224,7 +400,7 @@ void print_cycle_data(
     const double max_fitness_value,
     const int mutation_amount
 ) {
-    std::cout << "\033[31;1m# " << std::setw(7) << cycle << "\033[0m \033[32;1mAVG: " << std::setw(8) << average_fitness_value << "\033[0m \033[34;1mMAX: " << std::setw(8) << max_fitness_value << "\033[0m \033[35;1mMUT: " << std::setw(3) << mutation_amount << "\033[0m\n";
+    std::cout << "\r" << "\033[31;1m# " << std::setw(7) << cycle << "\033[0m \033[32;1mAVG: " << std::setw(8) << average_fitness_value << "\033[0m \033[34;1mMAX: " << std::setw(8) << max_fitness_value << "\033[0m \033[35;1mMUT: " << std::setw(3) << mutation_amount << "\033[0m";
 }
 
 void ga_loop(
@@ -246,33 +422,39 @@ void ga_loop(
             throw std::runtime_error("population size must be at least 2 for crossover.\n");
         }
 
-        while (population->size() < config.max_population_size) {
-            auto crossover_candidates = choose_crossover_candidates(generator, config.population_size);
-
-            auto children = execute_crossover(
-                * population->at(crossover_candidates.first),
-                * population->at(crossover_candidates.second),
-                generator,
-                config.crossover_strategy
-            );
-
-            population->push_back(std::move(children.first));
-            population->push_back(std::move(children.second));
-        }
+        crossover_functions[config.computation_mode](
+            * population,
+            generator,
+            config.population_size,
+            config.max_population_size,
+            config.crossover_strategy
+        );
 
         // step 2 mutation
         auto mutation_candidates = choose_mutation_candidate(generator, config.max_population_size, config.mutation_rate);
 
-        execute_mutation(* population, * mutation_candidates, average_fitness_value, config.min_range, config.max_range, generator);
+        mutation_functions[config.computation_mode](
+            * population,
+            mutation_candidates,
+            average_fitness_value,
+            config.min_range,
+            config.max_range,
+            config.step,
+            generator
+        );
 
         // step 3 fitness value evaluation
-        evaluate_fitness(* target, * population);
+        fitness_functions[config.computation_mode](
+            * target,
+            * population
+        );
+
         average_fitness_value = evaluate_average_fitness(* population);
         max_fitness_value = evaluate_maximum_fitness_value(* population);
 
         if (cycle % 100 == 0) {
-            print_cycle_data(cycle, average_fitness_value, max_fitness_value, mutation_candidates->size());
-        // print_population(* population);
+            print_cycle_data(cycle, average_fitness_value, max_fitness_value, mutation_candidates.size());
+            // print_population(* population);
         }
 
         // step 4 selection
@@ -284,5 +466,5 @@ void ga_loop(
         }
     }
 
-    std::cout << "all " << config.cycles << " cycles completed terminating the program...\n";
+    std::cout << "\nall " << config.cycles << " cycles completed terminating the program...\n";
 }

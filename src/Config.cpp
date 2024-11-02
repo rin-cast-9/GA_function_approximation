@@ -22,6 +22,7 @@ Config parse_config(
     config.argument_multiplier = ptree.get <int> ("function.argument_multiplier");
     config.min_range = ptree.get <double> ("min_range");
     config.max_range = ptree.get <double> ("max_range");
+    config.computation_mode = ptree.get <int> ("computation_mode");
 
     validate_config_step(config.step);
     validate_population_size(config.population_size, config.max_population_size);
@@ -30,6 +31,7 @@ Config parse_config(
     validate_crossover_strategy(config.crossover_strategy);
     validate_function(config.constant, config.function, config.argument_multiplier);
     validate_range(config.min_range, config.max_range);
+    validate_computation_mode(config.computation_mode);
 
     return config;
 }

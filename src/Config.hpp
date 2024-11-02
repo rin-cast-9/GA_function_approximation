@@ -17,6 +17,7 @@ struct Config {
     int argument_multiplier;
     double min_range;
     double max_range;
+    int computation_mode;
 };
 
 Config parse_config(

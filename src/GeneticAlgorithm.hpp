@@ -9,6 +9,24 @@
 #include <vector>
 #include <random>
 
+using CrossoverFunction = void(*)(
+    std::vector<std::unique_ptr<Individual>> &,
+    std::mt19937 &,
+    const int,
+    const int,
+    const int
+);
+
+using MutationFunction = void(*)(
+    const std::vector <std::unique_ptr <Individual>> &,
+    const std::vector <size_t> &,
+    const double,
+    const double,
+    const double,
+    const double,
+    std::mt19937 &
+);
+
 std::unique_ptr <std::vector <double>> generate_solution(
     const Func & function,
     const int multiplier,
@@ -47,10 +65,41 @@ void crossover_type3(
     std::mt19937 & generator
 );
 
+void crossover_type4(
+    const Individual & parent1,
+    const Individual & parent2,
+    std::vector<double> & child1_solution,
+    std::vector<double> & child2_solution,
+    std::mt19937 & generator
+);
+
 std::pair <std::unique_ptr <Individual>, std::unique_ptr <Individual>> execute_crossover(
     const Individual & parent1,
     const Individual & parent2,
     std::mt19937 & generator,
+    const int crossover_strategy
+);
+
+static void execute_parallel_crossover(
+    std::vector <std::unique_ptr <Individual>> & population,
+    const int current_population_size,
+    const int crossover_strategy,
+    const size_t index
+);
+
+void parallel_crossover(
+    std::vector <std::unique_ptr <Individual>> & population,
+    std::mt19937 & generator,
+    const int population_size,
+    const int max_population_size,
+    const int crossover_strategy
+);
+
+void single_thread_crossover(
+    std::vector <std::unique_ptr<Individual>> & population,
+    std::mt19937 & generator,
+    const int population_size,
+    const int max_population_size,
     const int crossover_strategy
 );
 
@@ -71,6 +120,17 @@ void execute_mutation(
     const double average_fitness_value,
     const double min_range,
     const double max_range,
+    const double step,
+    std::mt19937 & generator
+);
+
+void parallel_mutation(
+    const std::vector <std::unique_ptr <Individual>> & population,
+    const std::vector <size_t> & mutation_candidates,
+    const double average_fitness_value,
+    const double min_range,
+    const double max_range,
+    const double step,
     std::mt19937 & generator
 );
 

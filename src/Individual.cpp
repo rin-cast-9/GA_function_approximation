@@ -2,6 +2,7 @@
 #include "GeneticAlgorithm.hpp"
 #include <iostream>
 #include <algorithm>
+#include <future>
 
 std::unique_ptr <std::vector <std::unique_ptr <Individual>>> create_population(
     const Config & config, std::mt19937 & generator
@@ -34,22 +35,47 @@ void evaluate_fitness(
     }
 }
 
+void parallel_evaluate_fitness(
+    const std::vector <double> & target,
+    const std::vector <std::unique_ptr <Individual>> & population
+) {
+    size_t population_size = population.size();
+    size_t individual_size = target.size();
+
+    std::vector <std::future <void>> futures;
+
+    for (int i = 0; i < population_size; ++ i) {
+        futures.push_back(std::async(std::launch::async, [&, i]() {
+            double individual_fitness_value = 0.0;
+            auto & individuals_solution = * population[i]->solution;
+            for (int j = 0; j < individual_size; ++ j) {
+                individual_fitness_value += std::abs(target[j] - individuals_solution[j]);
+            }
+            population[i]->fitness = individual_fitness_value;
+        }));
+    }
+
+    for (auto & future : futures) {
+        future.get();
+    }
+}
+
 void print_population(
     const std::vector <std::unique_ptr <Individual>> & population
 ) {
     for (const auto & individual : population) {
         std::cout << "[" << individual->fitness << "] ";
 
-        for (const auto & element : * individual->solution) {
-            std::cout << element << ' ';
-        }
+        // for (const auto & element : * individual->solution) {
+        //     std::cout << element << ' ';
+        // }
     }
-    std::cout << "]\n";
+    std::cout << "\n";
 }
 
 void perform_selection(
     std::vector <std::unique_ptr <Individual>> & population,
-    const int population_size    
+    const int population_size
 ) {
     std::sort(
         population.begin(),

@@ -5,7 +5,6 @@
 
 #include <string>
 #include <map>
-#include <cmath>
 
 using Func = double (*)(double);
 
@@ -45,6 +44,10 @@ void validate_function(
 void validate_range(
     double min_range,
     double max_range
+);
+
+void validate_computation_mode(
+    int computation_mode
 );
 
 #endif

@@ -2,6 +2,7 @@
 #include <cmath>
 #include <set>
 #include <iostream>
+#include <stdexcept>
 
 std::map <std::string, Func> string_to_function_map = {
     {"sin", std::sin},
@@ -58,7 +59,7 @@ void validate_cycles(int cycles) {
 }
 
 void validate_crossover_strategy(int crossover_strategy) {
-    if (crossover_strategy < 0 || crossover_strategy > 2) {
+    if (crossover_strategy < 0 || crossover_strategy > 3) {
         std::cerr << "invalid crossover strategy value\n";
         throw std::invalid_argument("invalid crossover strategy value\n");
     }
@@ -86,5 +87,14 @@ void validate_range(double min_range, double max_range) {
     if (min_range >= max_range) {
         std::cerr << "invalid range values\n";
         throw std::invalid_argument("invalid range values\n");
+    }
+}
+
+void validate_computation_mode(
+    int computation_mode
+) {
+    if ((computation_mode < 0) || (computation_mode > 2)) {
+        std::cerr << "invalid computation mode\n";
+        throw std::invalid_argument("invalid computation mode\n");
     }
 }
