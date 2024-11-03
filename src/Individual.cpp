@@ -66,9 +66,10 @@ void print_population(
     for (const auto & individual : population) {
         std::cout << "[" << individual->fitness << "] ";
 
-        // for (const auto & element : * individual->solution) {
-        //     std::cout << element << ' ';
-        // }
+        for (const auto & element : * individual->solution) {
+            std::cout << element << ' ';
+        }
+        std::cout << '\n';
     }
     std::cout << "\n";
 }

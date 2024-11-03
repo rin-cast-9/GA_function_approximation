@@ -156,4 +156,11 @@ void ga_loop(
     std::mt19937 & generator
 );
 
+void print_graph_data_to_file(
+    const std::string & file_path,
+    const std::vector <double> & target,
+    const std::vector <double> & best_solution,
+    const double step
+);
+
 #endif

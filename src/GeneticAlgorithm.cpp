@@ -2,6 +2,7 @@
 #include "Individual.hpp"
 #include <cstddef>
 #include <cstdlib>
+#include <fstream>
 #include <memory>
 #include <random>
 #include <utility>
@@ -139,24 +140,17 @@ void crossover_type4(
 ) {
     size_t size = parent1.solution->size();
 
+    auto & parent1_solution = * parent1.solution;
+    auto & parent2_solution = * parent2.solution;
+
     for (size_t i = 0; i < size; ++ i) {
         std::uniform_real_distribution <double> distribution(
-            std::min(parent1.solution->at(i), parent2.solution->at(i)),
-            std::max(parent1.solution->at(i), parent2.solution->at(i))
+            std::min(parent1_solution[i], parent2_solution[i]),
+            std::max(parent1_solution[i], parent2_solution[i])
         );
 
-        double random_point = distribution(generator);
-        child1_solution[i] = random_point;
-
-        double distance_to_parent1 = std::abs(random_point - parent1.solution->at(i));
-        double distance_to_parent2 = std::abs(random_point - parent2.solution->at(i));
-
-        if (distance_to_parent1 < distance_to_parent2) {
-                    child2_solution[i] = parent2.solution->at(i) + (distance_to_parent1 * (parent1.solution->at(i) < parent2.solution->at(i) ? 1 : -1));
-        }
-        else {
-            child2_solution[i] = parent1.solution->at(i) + (distance_to_parent2 * (parent1.solution->at(i) < parent2.solution->at(i) ? -1 : 1));
-        }
+        child1_solution[i] = distribution(generator);
+        child2_solution[i] = distribution(generator);
     }
 }
 
@@ -225,34 +219,6 @@ void parallel_crossover(
         population[population_size + (i * 2)] = std::move(children.first);
         population[population_size + (i * 2) + 1] = std::move(children.second);
     }
-
-    // for (auto & future : futures) {
-    //     new_individuals.push_back(future.get());
-    // }
-
-    // for (auto & children : new_individuals) {
-    //     population.push_back(std::move(children.first));
-    //     population.push_back(std::move(children.second));
-    // }
-
-    // while (population.size() < max_population_size) {
-    //     futures.push_back(std::async(std::launch::async, [&] () {
-    //         auto crossover_candidates = choose_crossover_candidates(generator, population_size);
-
-    //         auto children = execute_crossover(
-    //             * population[crossover_candidates.first],
-    //             * population[crossover_candidates.second],
-    //             generator,
-    //             crossover_strategy
-    //         );
-
-    //         {
-    //             std::lock_guard<std::mutex> lock(population_mutex);
-    //             population.push_back(std::move(children.first));
-    //             population.push_back(std::move(children.second));
-    //         }
-    //     }));
-    // }
 }
 
 void single_thread_crossover(
@@ -281,13 +247,13 @@ std::pair <int, int> choose_crossover_candidates(
     std::mt19937 & generator,
     const int population_size
 ) {
-    std::uniform_int_distribution <int> distribution(0, population_size - 1);
+    std::geometric_distribution <int> distribution(0.2);
 
-    int candidate1 = distribution(generator);
-    int candidate2 = distribution(generator);
+    int candidate1 = distribution(generator) % population_size;
+    int candidate2 = distribution(generator) % population_size;
 
     do {
-        candidate2 = distribution(generator);
+        candidate2 = distribution(generator) % population_size;
     } while (candidate1 == candidate2);
 
     return {candidate1, candidate2};
@@ -321,7 +287,8 @@ void execute_mutation(
     std::mt19937 & generator
 ) {
     const double range = std::abs(max_range - min_range);
-    const double mutation_strength = average_fitness_value / (((int)(10.0 / step) + 1) * range);
+    const double domain = (((int)(10.0 / step) + 1) * range);
+    const double mutation_strength = (average_fitness_value < (domain * 0.03)) ? (average_fitness_value / domain / 10) : (average_fitness_value / domain / 3);
 
     std::uniform_real_distribution <double> distribution(-range, range);
 
@@ -346,7 +313,7 @@ void parallel_mutation(
     std::mt19937 & generator
 ) {
     const double range = std::abs(max_range - min_range);
-    const double mutation_strength = average_fitness_value / (((int)(10.0 / step) + 1) * range);
+    const double mutation_strength = average_fitness_value / (((int)(10.0 / step) + 1) * range) / 10.0;
 
     std::uniform_real_distribution <double> distribution(-range, range);
 
@@ -400,7 +367,30 @@ void print_cycle_data(
     const double max_fitness_value,
     const int mutation_amount
 ) {
-    std::cout << "\r" << "\033[31;1m# " << std::setw(7) << cycle << "\033[0m \033[32;1mAVG: " << std::setw(8) << average_fitness_value << "\033[0m \033[34;1mMAX: " << std::setw(8) << max_fitness_value << "\033[0m \033[35;1mMUT: " << std::setw(3) << mutation_amount << "\033[0m";
+    std::cout << "\033[31;1m# " << std::setw(7) << cycle << "\033[0m \033[32;1mAVG: " << std::setw(8) << average_fitness_value << "\033[0m \033[34;1mMAX: " << std::setw(8) << max_fitness_value << "\033[0m \033[35;1mMUT: " << std::setw(3) << mutation_amount << "\033[0m\n";
+}
+
+void print_graph_data_to_file(
+    const std::string & file_path,
+    const std::vector <double> & target,
+    const std::vector <double> & best_solution,
+    const double step
+) {
+    std::ofstream out_file(file_path);
+
+    if (!out_file) {
+        return;
+    }
+
+    out_file << step << '\n';
+    for (const auto & e : target) {
+        out_file << e << ' ';
+    }
+    out_file << '\n';
+    for (const auto & e : best_solution) {
+        out_file << e << ' ';
+    }
+    out_file << '\n';
 }
 
 void ga_loop(
@@ -409,12 +399,17 @@ void ga_loop(
     const Config & config,
     std::mt19937 & generator
 ) {
-    evaluate_fitness(* target, * population);
+    fitness_functions[config.computation_mode](
+        * target,
+        * population
+    );
 
     double average_fitness_value = evaluate_average_fitness(* population);
     double max_fitness_value = evaluate_maximum_fitness_value(* population);
 
     for (int cycle = 0; cycle < config.cycles; ++ cycle) {
+
+        perform_selection(* population, config.population_size);
 
         // step 1 crossover
         if (population->size() < 2) {
@@ -429,6 +424,8 @@ void ga_loop(
             config.max_population_size,
             config.crossover_strategy
         );
+
+        // print_population(* population);
 
         // step 2 mutation
         auto mutation_candidates = choose_mutation_candidate(generator, config.max_population_size, config.mutation_rate);
@@ -458,13 +455,15 @@ void ga_loop(
         }
 
         // step 4 selection
-        perform_selection(* population, config.population_size);
+        // perform_selection(* population, config.population_size);
 
         // break conditions
         if (max_fitness_value < 0.5) {
             break;
         }
     }
+
+    print_graph_data_to_file(std::string(PROJECT_ROOT_DIR) + "/graph_data.txt", * target, * (population->at(0)->solution), config.step);
 
     std::cout << "\nall " << config.cycles << " cycles completed terminating the program...\n";
 }

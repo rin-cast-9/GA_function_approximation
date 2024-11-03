@@ -6,11 +6,8 @@
 #include <iostream>
 #include <string>
 #include <map>
-#include <cmath>
 #include <random>
 #include <memory>
-#include <set>
-#include <iomanip>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/ini_parser.hpp>
 
