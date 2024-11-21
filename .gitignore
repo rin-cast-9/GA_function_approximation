@@ -6,6 +6,7 @@ CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
 Makefile
+CMakeScripts/
 
 # compiled executables
 *.out
@@ -18,3 +19,5 @@ Makefile
 
 .cache/
 .clangd
+
+*.txt
