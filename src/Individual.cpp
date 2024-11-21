@@ -17,16 +17,16 @@ std::unique_ptr <std::vector <std::unique_ptr <Individual>>> create_population(
 }
 
 void evaluate_fitness(
-    const std::vector <double> & target,
+    const std::vector <float> & target,
     const std::vector <std::unique_ptr <Individual>> & population
 ) {
     size_t population_size = population.size();
     size_t individual_size = target.size();
 
-    auto fitness_values = std::make_unique <std::vector <double>> (population_size);
+    auto fitness_values = std::make_unique <std::vector <float>> (population_size);
 
     for (int i = 0; i < population_size; ++ i) {
-        double individual_fitness_value = 0.0;
+        float individual_fitness_value = 0.0;
         auto & individuals_solution = * population[i]->solution;
         for (int j = 0; j < individual_size; ++ j) {
             individual_fitness_value += std::abs(target[j] - individuals_solution[j]);
@@ -36,7 +36,7 @@ void evaluate_fitness(
 }
 
 void parallel_evaluate_fitness(
-    const std::vector <double> & target,
+    const std::vector <float> & target,
     const std::vector <std::unique_ptr <Individual>> & population
 ) {
     size_t population_size = population.size();
@@ -46,7 +46,7 @@ void parallel_evaluate_fitness(
 
     for (int i = 0; i < population_size; ++ i) {
         futures.push_back(std::async(std::launch::async, [&, i]() {
-            double individual_fitness_value = 0.0;
+            float individual_fitness_value = 0.0;
             auto & individuals_solution = * population[i]->solution;
             for (int j = 0; j < individual_size; ++ j) {
                 individual_fitness_value += std::abs(target[j] - individuals_solution[j]);

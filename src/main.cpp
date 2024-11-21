@@ -11,8 +11,6 @@
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/ini_parser.hpp>
 
-
-
 void test_generated_solutions() {
     Config config = parse_config("../config.conf");
 

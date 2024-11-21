@@ -8,16 +8,24 @@ std::map <std::string, Func> string_to_function_map = {
     {"sin", std::sin},
     {"cos", std::cos},
     {"square", square},
-    {"ln", std::log},
+    {"ln", log_zero_allowed},
     {"sqrt", std::sqrt},
 };
 
-double square(const double x) {
+float square(const float x) {
     return std::pow(x, 2);
 }
 
-void validate_config_step(double step) {
-    std::set <double> valid_steps = {0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5};
+float log_zero_allowed(const float x) {
+    if (x == 0.0) {
+        return std::log(0.001);
+    }
+
+    return std::log(x);
+}
+
+void validate_config_step(float step) {
+    std::set <float> valid_steps = {0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5};
 
     if (valid_steps.find(step) == valid_steps.end()) {
         std::cerr << "invalid step value\n";
@@ -44,7 +52,7 @@ void validate_population_size(int population_size, int max_population_size) {
     }
 }
 
-void validate_mutation_rate(double mutation_rate) {
+void validate_mutation_rate(float mutation_rate) {
     if (mutation_rate < 0.0 || mutation_rate > 1.0) {
         std::cerr << "invalid mutation rate value\n";
         throw std::invalid_argument("invalid mutation rate value\n");
@@ -83,7 +91,7 @@ void validate_function(int constant, std::string function, int argument_multipli
     }
 }
 
-void validate_range(double min_range, double max_range) {
+void validate_range(float min_range, float max_range) {
     if (min_range >= max_range) {
         std::cerr << "invalid range values\n";
         throw std::invalid_argument("invalid range values\n");
@@ -96,5 +104,23 @@ void validate_computation_mode(
     if ((computation_mode < 0) || (computation_mode > 2)) {
         std::cerr << "invalid computation mode\n";
         throw std::invalid_argument("invalid computation mode\n");
+    }
+}
+
+void validate_print_interval(
+    int print_interval
+) {
+    if (print_interval <= 0) {
+        std::cerr << "invalid print interval\n";
+        throw std::invalid_argument("invalid print interval\n");
+    }
+}
+
+void validate_approximation_tolerance(
+    float approximation_tolerance
+) {
+    if (approximation_tolerance <= 0.0) {
+        std::cerr << "invalid approximation tolerance\n";
+        throw std::invalid_argument("invalid approximation tolerance\n");
     }
 }
