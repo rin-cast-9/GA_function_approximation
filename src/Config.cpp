@@ -14,15 +14,17 @@ Config parse_config(
     config.step = ptree.get <double> ("step");
     config.population_size = ptree.get <int> ("population_size");
     config.max_population_size = ptree.get <int> ("max_population_size");
-    config.mutation_rate = ptree.get <double> ("mutation_rate");
+    config.mutation_rate = ptree.get <float> ("mutation_rate");
     config.cycles = ptree.get <int> ("cycles");
     config.crossover_strategy = ptree.get <int> ("crossover_strategy");
     config.constant = ptree.get <int> ("function.constant");
     config.function = ptree.get <std::string> ("function.function");
     config.argument_multiplier = ptree.get <int> ("function.argument_multiplier");
-    config.min_range = ptree.get <double> ("min_range");
-    config.max_range = ptree.get <double> ("max_range");
+    config.min_range = ptree.get <float> ("min_range");
+    config.max_range = ptree.get <float> ("max_range");
     config.computation_mode = ptree.get <int> ("computation_mode");
+    config.print_interval = ptree.get <int> ("print_interval");
+    config.approximation_tolerance = ptree.get <float> ("approximation_tolerance");
 
     validate_config_step(config.step);
     validate_population_size(config.population_size, config.max_population_size);
@@ -32,6 +34,8 @@ Config parse_config(
     validate_function(config.constant, config.function, config.argument_multiplier);
     validate_range(config.min_range, config.max_range);
     validate_computation_mode(config.computation_mode);
+    validate_print_interval(config.print_interval);
+    validate_approximation_tolerance(config.approximation_tolerance);
 
     return config;
 }

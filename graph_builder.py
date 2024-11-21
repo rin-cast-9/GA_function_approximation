@@ -26,7 +26,8 @@ def plot_graphs(step, y_target, y_best):
 
 
 def main():
-    file_path = "graph_data.txt"
+    # file_path = "graph_data.txt"
+    file_path = "/Users/vadimabramov/Uni_works/programming/ai_systems/genetic_algorithm/graph_data.txt"
     plot_graphs(* read_data(file_path))
 
 

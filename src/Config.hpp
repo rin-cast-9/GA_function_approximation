@@ -9,15 +9,17 @@ struct Config {
     double step;
     int population_size;
     int max_population_size;
-    double mutation_rate;
+    float mutation_rate;
     int cycles;
     int crossover_strategy;
     int constant;
     std::string function;
     int argument_multiplier;
-    double min_range;
-    double max_range;
+    float min_range;
+    float max_range;
     int computation_mode;
+    int print_interval;
+    float approximation_tolerance;
 };
 
 Config parse_config(
